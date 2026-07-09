@@ -1,3 +1,8 @@
+---
+name: lexmount-webfetch
+description: Use Lexmount WebFetch through webfetch-cli for lightweight public page extraction and DOM dump tasks. Prefer this skill when the task needs structured extraction or rendered HTML capture without creating a live remote browser session.
+---
+
 # Lexmount WebFetch CLI
 
 Use `webfetch-cli` when a task needs to fetch a public page through Lexmount WebFetch instead of opening a live browser session.

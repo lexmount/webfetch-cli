@@ -141,3 +141,18 @@ def test_request_json_rejects_non_json(monkeypatch):
     monkeypatch.setattr(cli, "urlopen", lambda request, timeout: BadResponse())
     with pytest.raises(cli.CliError, match="Response was not JSON"):
         cli.request_json("POST", "https://example.test", body={})
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        Path("SKILL.md"),
+        Path("webfetch_cli/agent_skill/SKILL.md"),
+    ],
+)
+def test_skill_files_have_codex_frontmatter(path):
+    text = path.read_text(encoding="utf-8")
+    assert text.startswith("---\n")
+    assert "\nname: lexmount-webfetch\n" in text
+    assert "\ndescription: " in text
+    assert "\n---\n\n# Lexmount WebFetch CLI" in text
