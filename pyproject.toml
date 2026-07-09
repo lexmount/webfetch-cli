@@ -1,0 +1,29 @@
+[project]
+name = "webfetch-cli"
+version = "0.1.0"
+description = "Standalone CLI for Lexmount WebFetch extract and DOM dump"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+webfetch-cli = "webfetch_cli.cli:main"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["webfetch_cli*"]
+
+[tool.setuptools.package-data]
+webfetch_cli = ["agent_skill/*.md"]
+
+[dependency-groups]
+dev = ["pytest>=8.0", "ruff>=0.8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
