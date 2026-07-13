@@ -47,7 +47,18 @@ def test_extract_posts_expected_body(monkeypatch, tmp_path, capsys):
         captured["headers"] = dict(request.header_items())
         captured["body"] = json.loads(request.data.decode("utf-8"))
         captured["timeout"] = timeout
-        return FakeResponse({"ok": True})
+        return FakeResponse(
+            {
+                "request_id": "req_1",
+                "result": {
+                    "url": "https://example.com",
+                    "final_url": "https://example.com/final",
+                    "status_code": 200,
+                    "title": "Example",
+                    "main_text": "Hello from WebFetch.",
+                },
+            }
+        )
 
     monkeypatch.setattr(cli, "urlopen", fake_urlopen)
 
@@ -57,10 +68,13 @@ def test_extract_posts_expected_body(monkeypatch, tmp_path, capsys):
     assert captured["headers"]["X-project-id"] == "project-1"
     assert captured["headers"]["X-api-key"] == "secret-key"
     assert captured["timeout"] == 7
-    assert json.loads(capsys.readouterr().out) == {"ok": True}
+    output = capsys.readouterr().out
+    assert output.startswith("# WebFetch Extract Result")
+    assert "Example" in output
+    assert "Hello from WebFetch." in output
 
 
-def test_extract_accepts_dom_id(monkeypatch, tmp_path):
+def test_extract_accepts_dom_id(monkeypatch, tmp_path, capsys):
     credentials_file = tmp_path / "credentials.json"
     write_credentials(credentials_file)
     monkeypatch.setenv(cli.CREDENTIALS_FILE_ENV, str(credentials_file))
@@ -68,15 +82,86 @@ def test_extract_accepts_dom_id(monkeypatch, tmp_path):
 
     def fake_urlopen(request, timeout):
         captured["body"] = json.loads(request.data.decode("utf-8"))
-        return FakeResponse({"ok": True})
+        return FakeResponse({"result": {"main_text": "Hello from WebFetch."}})
 
     monkeypatch.setattr(cli, "urlopen", fake_urlopen)
 
-    assert cli.main(["extract", "--dom-id", "dom_123"]) == 0
+    assert cli.main(["extract", "--dom-id", "dom_123", "--format", "json"]) == 0
     assert captured["body"] == {"extract": {"dom_id": "dom_123"}}
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["main_text"] == "Hello from WebFetch."
+    assert "trace" not in payload
 
 
-def test_dump_dom_posts_expected_body(monkeypatch, tmp_path):
+def test_extract_json_full_preserves_raw_payload(monkeypatch, tmp_path, capsys):
+    credentials_file = tmp_path / "credentials.json"
+    write_credentials(credentials_file)
+    monkeypatch.setenv(cli.CREDENTIALS_FILE_ENV, str(credentials_file))
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["body"] = json.loads(request.data.decode("utf-8"))
+        return FakeResponse(
+            {
+                "request_id": "req_1",
+                "result": {"main_text": "Hello."},
+                "trace": [{"step": "fetch"}],
+                "raw_dom": "<html></html>",
+            }
+        )
+
+    monkeypatch.setattr(cli, "urlopen", fake_urlopen)
+
+    assert (
+        cli.main(
+            [
+                "extract",
+                "--url",
+                "https://example.com",
+                "--include-trace",
+                "--include-raw-dom",
+                "--format",
+                "json-full",
+            ]
+        )
+        == 0
+    )
+    assert captured["body"] == {
+        "extract": {"url": "https://example.com"},
+        "trace": {"include_raw_dom": True, "include_steps": True},
+    }
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["trace"] == [{"step": "fetch"}]
+    assert payload["raw_dom"] == "<html></html>"
+
+
+def test_extract_debug_fields_require_json_full(monkeypatch, tmp_path):
+    credentials_file = tmp_path / "credentials.json"
+    write_credentials(credentials_file)
+    monkeypatch.setenv(cli.CREDENTIALS_FILE_ENV, str(credentials_file))
+
+    with pytest.raises(SystemExit) as error:
+        cli.main(["extract", "--url", "https://example.com", "--include-trace"])
+    assert error.value.code == 1
+
+
+def test_extract_compact_json_preserves_error(monkeypatch, tmp_path, capsys):
+    credentials_file = tmp_path / "credentials.json"
+    write_credentials(credentials_file)
+    monkeypatch.setenv(cli.CREDENTIALS_FILE_ENV, str(credentials_file))
+
+    def fake_urlopen(request, timeout):
+        return FakeResponse({"request_id": "req_1", "error": {"message": "blocked"}})
+
+    monkeypatch.setattr(cli, "urlopen", fake_urlopen)
+
+    assert cli.main(["extract", "--url", "https://example.com", "--format", "json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["error"] == {"message": "blocked"}
+    assert "error" in payload["quality"]["warnings"]
+
+
+def test_dump_dom_posts_expected_body(monkeypatch, tmp_path, capsys):
     credentials_file = tmp_path / "credentials.json"
     write_credentials(credentials_file)
     monkeypatch.setenv(cli.CREDENTIALS_FILE_ENV, str(credentials_file))
@@ -85,13 +170,76 @@ def test_dump_dom_posts_expected_body(monkeypatch, tmp_path):
     def fake_urlopen(request, timeout):
         captured["url"] = request.full_url
         captured["body"] = json.loads(request.data.decode("utf-8"))
-        return FakeResponse({"dom_id": "dom_1"})
+        return FakeResponse(
+            {
+                "request_id": "req_1",
+                "url": "https://example.com",
+                "final_url": "https://example.com/final",
+                "status_code": 200,
+                "engine": "lightmount_dcl",
+                "dom_id": "dom_1",
+                "html": "<main>Hello</main>",
+                "debug": {"step": "hidden"},
+            }
+        )
 
     monkeypatch.setattr(cli, "urlopen", fake_urlopen)
 
     assert cli.main(["dump-dom", "--url", "https://example.com"]) == 0
     assert captured["url"] == "https://api.example.test/v1/dom/dump"
     assert captured["body"] == {"url": "https://example.com"}
+    output = capsys.readouterr().out
+    assert output.startswith("# WebFetch DOM Dump")
+    assert "<main>Hello</main>" in output
+    assert "hidden" not in output
+
+
+def test_dump_dom_options_and_json_output(monkeypatch, tmp_path, capsys):
+    credentials_file = tmp_path / "credentials.json"
+    write_credentials(credentials_file)
+    monkeypatch.setenv(cli.CREDENTIALS_FILE_ENV, str(credentials_file))
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["body"] = json.loads(request.data.decode("utf-8"))
+        return FakeResponse(
+            {
+                "dom_id": "dom_1",
+                "html": "<html></html>",
+                "debug": {"step": "hidden"},
+            }
+        )
+
+    monkeypatch.setattr(cli, "urlopen", fake_urlopen)
+
+    assert (
+        cli.main(
+            [
+                "dump-dom",
+                "--url",
+                "https://example.com",
+                "--engine",
+                "lightmount_dcl",
+                "--timeout-ms",
+                "7000",
+                "--filter-scripts-styles",
+                "--format",
+                "json",
+            ]
+        )
+        == 0
+    )
+    assert captured["body"] == {
+        "url": "https://example.com",
+        "options": {
+            "engine_preference": "lightmount_dcl",
+            "filter_scripts_styles": True,
+            "timeout_ms": 7000,
+        },
+    }
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["html"] == "<html></html>"
+    assert "debug" not in payload
 
 
 def test_auth_status_reports_missing_credentials(monkeypatch, tmp_path, capsys):
@@ -125,6 +273,15 @@ def test_doctor_fails_when_credentials_missing(monkeypatch, tmp_path, capsys):
     assert payload["ok"] is False
     assert payload["status"] == "fail"
     assert payload["checks"][1]["name"] == "credentials"
+
+
+def test_capabilities_reports_agent_friendly_defaults(capsys):
+    assert cli.main(["capabilities", "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["default_format"] == "md"
+    assert payload["formats"] == ["md", "text", "json", "json-full"]
+    assert payload["commands"]["extract"]["debug_output"] == "json-full"
+    assert payload["exit_codes"]["2"] == "invalid CLI usage"
 
 
 def test_request_json_rejects_non_json(monkeypatch):

@@ -12,6 +12,7 @@ Use `webfetch-cli` for Lexmount WebFetch extraction and DOM dump tasks.
 ```bash
 webfetch-cli --version
 webfetch-cli auth status
+webfetch-cli capabilities --json
 ```
 
 If credentials are missing, run:
@@ -29,11 +30,23 @@ Never paste API keys into chat.
 webfetch-cli extract --url https://example.com
 ```
 
+Default output is Markdown optimized for agents. It includes page metadata,
+extraction quality warnings, and the extracted main text.
+
 Use this for normal structured extraction. The CLI sends:
 
 ```json
 {"extract":{"url":"https://example.com"}}
 ```
+
+When debugging, request the full raw API response explicitly:
+
+```bash
+webfetch-cli extract --url https://example.com --include-trace --format json-full
+webfetch-cli extract --url https://example.com --include-raw-dom --format json-full
+```
+
+Use `--format json` for compact structured data and `--format text` for plain text.
 
 ## Dump DOM
 
@@ -41,8 +54,18 @@ Use this for normal structured extraction. The CLI sends:
 webfetch-cli dump-dom --url https://example.com
 ```
 
+Default output is Markdown with DOM metadata, dump quality warnings, and captured
+HTML. Debug fields are hidden unless `--format json-full` is used.
+
 Use this when extraction needs rendered HTML or a reusable DOM snapshot. The CLI sends:
 
 ```json
 {"url":"https://example.com"}
+```
+
+Use optional engine and cleanup hints when needed:
+
+```bash
+webfetch-cli dump-dom --url https://example.com --engine lightmount_dcl
+webfetch-cli dump-dom --url https://example.com --filter-scripts-styles
 ```
