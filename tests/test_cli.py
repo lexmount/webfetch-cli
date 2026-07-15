@@ -313,3 +313,12 @@ def test_skill_files_have_codex_frontmatter(path):
     assert "\nname: lexmount-webfetch\n" in text
     assert "\ndescription: " in text
     assert "\n---\n\n# Lexmount WebFetch CLI" in text
+
+
+def test_skill_guidance_prefers_fast_path_over_repeated_checks():
+    for path in [Path("SKILL.md"), Path("webfetch_cli/agent_skill/SKILL.md")]:
+        text = path.read_text(encoding="utf-8")
+        assert "## Fast Path" in text
+        assert "Do not run setup checks before every extraction" in text
+        assert "Run checks only when they change the next action" in text
+        assert "Unexpected command/API failure: `webfetch-cli doctor --json`" in text

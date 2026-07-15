@@ -7,27 +7,22 @@ description: Use Lexmount WebFetch through webfetch-cli for lightweight public p
 
 Use `webfetch-cli` when a task needs to fetch a public page through Lexmount WebFetch instead of opening a live browser session.
 
-## Setup
+## Fast Path
 
-1. Check the CLI:
-   ```bash
-   webfetch-cli --version
-   webfetch-cli skill status
-   webfetch-cli capabilities --json
-   ```
-2. If the skill is missing:
-   ```bash
-   webfetch-cli skill install --force
-   ```
-3. Check credentials:
-   ```bash
-   webfetch-cli auth status
-   ```
-4. If credentials are missing:
-   ```bash
-   webfetch-cli auth login --open --connect-base-url https://browser.lexmount.cn
-   webfetch-cli doctor --json
-   ```
+Do not run setup checks before every extraction. For ordinary fetch tasks, call the target command directly:
+
+```bash
+webfetch-cli extract --url <url>
+webfetch-cli dump-dom --url <url>
+```
+
+Run checks only when they change the next action:
+
+- First use in a new environment: `webfetch-cli --version` and `webfetch-cli auth status`.
+- Missing credentials: `webfetch-cli auth login --open --connect-base-url https://browser.lexmount.cn`, then `webfetch-cli doctor --json`.
+- Unexpected command/API failure: `webfetch-cli doctor --json`.
+- Unsure installed capability or output shape: `webfetch-cli capabilities --json`.
+- Skill file missing or stale: `webfetch-cli skill status`, then `webfetch-cli skill install --force` only if needed.
 
 Do not ask users to paste API keys into chat. `webfetch-cli auth login` stores credentials locally after a one-time PKCE callback.
 
