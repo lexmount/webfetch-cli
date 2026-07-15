@@ -10,7 +10,17 @@ uv tool install --force git+https://github.com/lexmount/webfetch-cli.git
 
 ## Connect
 
+Fast path for agents: do not run setup checks before every extraction. Use the target command directly when credentials are already configured.
+
 ```bash
+webfetch-cli extract --url https://www.bilibili.com
+webfetch-cli dump-dom --url https://www.bilibili.com
+```
+
+Run setup checks only when needed:
+
+```bash
+webfetch-cli auth status
 webfetch-cli auth login --open --connect-base-url https://browser.lexmount.cn
 webfetch-cli doctor --json
 webfetch-cli capabilities --json
