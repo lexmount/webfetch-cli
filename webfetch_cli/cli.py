@@ -440,6 +440,7 @@ def connect_authorize_url(
     state: str,
     code_challenge: str,
     scopes: tuple[str, ...],
+    client_name: str,
 ) -> str:
     base = normalize_base_url(connect_base_url)
     query = urlencode(
@@ -449,7 +450,7 @@ def connect_authorize_url(
             "code_challenge": code_challenge,
             "code_challenge_method": "S256",
             "scope": " ".join(scopes),
-            "client_name": "webfetch-cli",
+            "client_name": client_name,
         }
     )
     return f"{base}/connect/codex?{query}"
@@ -491,6 +492,7 @@ def command_auth_login(args: argparse.Namespace) -> int:
         state=state,
         code_challenge=code_challenge,
         scopes=DEFAULT_CONNECT_SCOPES,
+        client_name=args.client_name,
     )
 
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -782,6 +784,11 @@ def build_parser() -> argparse.ArgumentParser:
     auth_login = auth_subparsers.add_parser("login")
     auth_login.add_argument("--open", action="store_true", help="Open login URL.")
     auth_login.add_argument("--connect-base-url", help="Lexmount console base URL.")
+    auth_login.add_argument(
+        "--client-name",
+        default="Agent",
+        help="Agent name shown in the browser approval UI.",
+    )
     auth_login.add_argument(
         "--timeout-seconds",
         type=int,
