@@ -248,6 +248,13 @@ def test_auth_status_reports_missing_credentials(monkeypatch, tmp_path, capsys):
     payload = json.loads(capsys.readouterr().out)
     assert payload["authenticated"] is False
     assert "Missing project id" in payload["error"]
+    assert payload["login_command"] == (
+        "webfetch-cli auth login --open "
+        "--connect-base-url https://browser.lexmount.cn --client-name Agent"
+    )
+    assert payload["next_step"] == (
+        "Run login_command, then rerun webfetch-cli auth status."
+    )
 
 
 def test_skill_install_and_status(monkeypatch, tmp_path, capsys):
@@ -273,6 +280,10 @@ def test_doctor_fails_when_credentials_missing(monkeypatch, tmp_path, capsys):
     assert payload["ok"] is False
     assert payload["status"] == "fail"
     assert payload["checks"][1]["name"] == "credentials"
+    assert payload["checks"][1]["repair_command"] == (
+        "webfetch-cli auth login --open "
+        "--connect-base-url https://browser.lexmount.cn --client-name Agent"
+    )
 
 
 def test_capabilities_reports_agent_friendly_defaults(capsys):
