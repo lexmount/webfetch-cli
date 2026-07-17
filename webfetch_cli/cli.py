@@ -65,6 +65,16 @@ def normalize_base_url(value: str) -> str:
         return value.rstrip("/")
 
 
+def default_auth_login_command(*, client_name: str = "Agent") -> str:
+    connect_base_url = normalize_base_url(
+        os.environ.get(CONNECT_BASE_URL_ENV) or DEFAULT_CONSOLE_URL
+    )
+    return (
+        "webfetch-cli auth login --open "
+        f"--connect-base-url {connect_base_url} --client-name {client_name}"
+    )
+
+
 def credentials_file() -> Path:
     override = os.environ.get(CREDENTIALS_FILE_ENV)
     if override:
@@ -582,6 +592,8 @@ def command_auth_status(_args: argparse.Namespace) -> int:
         )
     except CliError as error:
         payload["error"] = str(error)
+        payload["login_command"] = default_auth_login_command()
+        payload["next_step"] = "Run login_command, then rerun webfetch-cli auth status."
     emit_json(payload)
     return 0
 
@@ -700,7 +712,14 @@ def command_doctor(_args: argparse.Namespace) -> int:
             }
         )
     except CliError as error:
-        checks.append({"name": "credentials", "status": "fail", "message": str(error)})
+        checks.append(
+            {
+                "name": "credentials",
+                "status": "fail",
+                "message": str(error),
+                "repair_command": default_auth_login_command(),
+            }
+        )
     dest = default_codex_home() / "skills" / DEFAULT_CODEX_SKILL_DIRECTORY_NAME
     checks.append(
         {
